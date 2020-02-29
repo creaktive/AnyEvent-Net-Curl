@@ -10,8 +10,8 @@ use Net::Curl::Easy ();
 use Net::Curl::Multi ();
 use Net::Curl::Share ();
 
-sub easy_gen {
-    my ( $url, $cb ) = @_;
+sub easy_gen ( $&& ) {
+    my ( $url, $cb_success, $cb_error ) = @_;
 
     state $share = do {
         my $s = Net::Curl::Share->new({ stamp => time });
@@ -32,8 +32,11 @@ sub easy_gen {
     my $body = '';
     my $header = '';
 
+    $easy->setopt( Net::Curl::Easy::CURLOPT_CONNECTTIMEOUT  => 10 );
     $easy->setopt( Net::Curl::Easy::CURLOPT_ENCODING        => '' );
     $easy->setopt( Net::Curl::Easy::CURLOPT_FOLLOWLOCATION  => 1 );
+    $easy->setopt( Net::Curl::Easy::CURLOPT_LOW_SPEED_LIMIT => 30 ); # abort if slower than 30 bytes/sec
+    $easy->setopt( Net::Curl::Easy::CURLOPT_LOW_SPEED_TIME  => 60 ); # during 60 seconds
     $easy->setopt( Net::Curl::Easy::CURLOPT_SHARE           => $share );
     $easy->setopt( Net::Curl::Easy::CURLOPT_URL             => $url );
     $easy->setopt( Net::Curl::Easy::CURLOPT_USERAGENT       => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Safari/605.1.15' );
@@ -43,12 +46,12 @@ sub easy_gen {
 
     my ( $socket_action, $callback ) = _socket_action_wrapper( $multi );
     $callback->{ $easy } = sub {
-        $cb->(
-            @_,
-            $easy,
-            $header,
-            $body,
-        );
+        my ( $result ) = @_;
+        if ( $result == Net::Curl::Easy::CURLE_OK ) {
+            $cb_success->( $easy, $header, $body );
+        } else {
+            $cb_error->( $easy, $result );
+        }
     };
 
     $multi->add_handle( $easy );
@@ -175,14 +178,23 @@ sub main {
 
     for my $url ( @urls ) {
         $cv->begin;
-        easy_gen(
-            $url => sub {
-                my ( $result, $easy, $hdr, $body ) = @_;
+        easy_gen
+            $url,
+            sub {
+                my ( $easy, $hdr, $body ) = @_;
                 say $easy->getinfo( Net::Curl::Easy::CURLINFO_EFFECTIVE_URL );
                 # say $hdr;
                 $cv->end;
-            }
-        )
+            },
+            sub {
+                my ( $easy, $result ) = @_;
+                if ( $result == Net::Curl::Easy::CURLE_OPERATION_TIMEDOUT ) {
+                    say "TIMEOUT\t", $easy->getinfo( Net::Curl::Easy::CURLINFO_EFFECTIVE_URL );
+                } else {
+                    say "$result\t", $easy->getinfo( Net::Curl::Easy::CURLINFO_EFFECTIVE_URL );
+                }
+                $cv->end;
+            };
     }
 
     $cv->recv;
