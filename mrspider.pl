@@ -6,12 +6,12 @@ use feature qw( say state );
 use AE ();
 use Carp ();
 use EV ();
-use Net::Curl::Easy ();
+use Net::Curl::Easy qw(/^CURLOPT_/);
 use Net::Curl::Multi ();
 use Net::Curl::Share ();
 
-sub easy_gen ( $&& ) {
-    my ( $url, $cb_success, $cb_error ) = @_;
+sub curl_request ( $$&&;$ ) {
+    my ( $method, $url, $cb_success, $cb_error, $content ) = @_;
 
     state $share = do {
         my $s = Net::Curl::Share->new({ stamp => time });
@@ -32,17 +32,44 @@ sub easy_gen ( $&& ) {
     my $body = '';
     my $header = '';
 
-    $easy->setopt( Net::Curl::Easy::CURLOPT_CONNECTTIMEOUT  => 10 );
-    $easy->setopt( Net::Curl::Easy::CURLOPT_ENCODING        => '' );
-    $easy->setopt( Net::Curl::Easy::CURLOPT_FOLLOWLOCATION  => 1 );
-    $easy->setopt( Net::Curl::Easy::CURLOPT_LOW_SPEED_LIMIT => 30 ); # abort if slower than 30 bytes/sec
-    $easy->setopt( Net::Curl::Easy::CURLOPT_LOW_SPEED_TIME  => 60 ); # during 60 seconds
-    $easy->setopt( Net::Curl::Easy::CURLOPT_SHARE           => $share );
-    $easy->setopt( Net::Curl::Easy::CURLOPT_URL             => $url );
-    $easy->setopt( Net::Curl::Easy::CURLOPT_USERAGENT       => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Safari/605.1.15' );
-    # $easy->setopt( Net::Curl::Easy::CURLOPT_VERBOSE         => 1 );
-    $easy->setopt( Net::Curl::Easy::CURLOPT_WRITEDATA       => \$body );
-    $easy->setopt( Net::Curl::Easy::CURLOPT_WRITEHEADER     => \$header );
+    # request type
+    $method = uc $method;
+    $content //= '';
+    if ( $method eq 'GET' ) {
+        $easy->setopt( CURLOPT_HTTPGET      ,=> 1 );
+    } elsif ( $method eq 'POST' ) {
+        $easy->setopt( CURLOPT_POST         ,=> 1 );
+        $easy->setopt( CURLOPT_POSTFIELDS   ,=> $content );
+        $easy->setopt( CURLOPT_POSTFIELDSIZE,=> length $content );
+    } elsif ( $method eq 'HEAD' ) {
+        $easy->setopt( CURLOPT_NOBODY       ,=> 1 );
+    } elsif ( $method eq 'DELETE' ) {
+        $easy->setopt( CURLOPT_CUSTOMREQUEST,=> $method );
+    } elsif ( $method eq 'PUT' ) {
+        ...
+    } else {
+        Carp::croak "Unknown HTTP method: $method\n";
+    }
+
+    # ol' reliable
+    $easy->setopt( CURLOPT_AUTOREFERER      ,=> 1 );
+    $easy->setopt( CURLOPT_ENCODING         ,=> '' );
+    $easy->setopt( CURLOPT_FOLLOWLOCATION   ,=> 1 );
+    $easy->setopt( CURLOPT_MAXREDIRS        ,=> 7 );
+    # $easy->setopt( CURLOPT_PROXY            ,=> 'socks5://127.0.0.1:9050' );
+    $easy->setopt( CURLOPT_USERAGENT        ,=> 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Safari/605.1.15' );
+    # $easy->setopt( CURLOPT_VERBOSE          ,=> 1 );
+
+    # timeouts
+    $easy->setopt( CURLOPT_CONNECTTIMEOUT   ,=> 10 );
+    $easy->setopt( CURLOPT_LOW_SPEED_LIMIT  ,=> 30 ); # abort if slower than 30 bytes/sec
+    $easy->setopt( CURLOPT_LOW_SPEED_TIME   ,=> 60 ); # during 60 seconds
+
+    # references
+    $easy->setopt( CURLOPT_SHARE            ,=> $share );
+    $easy->setopt( CURLOPT_URL              ,=> $url );
+    $easy->setopt( CURLOPT_WRITEDATA        ,=> \$body );
+    $easy->setopt( CURLOPT_WRITEHEADER      ,=> \$header );
 
     my ( $socket_action, $callback ) = _socket_action_wrapper( $multi );
     $callback->{ $easy } = sub {
@@ -178,8 +205,7 @@ sub main {
 
     for my $url ( @urls ) {
         $cv->begin;
-        easy_gen
-            $url,
+        curl_request GET => $url,
             sub {
                 my ( $easy, $hdr, $body ) = @_;
                 say $easy->getinfo( Net::Curl::Easy::CURLINFO_EFFECTIVE_URL );
