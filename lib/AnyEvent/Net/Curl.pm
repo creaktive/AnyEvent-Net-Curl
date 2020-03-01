@@ -23,7 +23,7 @@ sub curl_request ( $$@ ) {
     Carp::croak "on_success must be a CODE reference!\n"
         if 'CODE' ne ref $cb_success;
     Carp::croak "on_error must be a CODE reference!\n"
-        if $cb_error && 'CODE' ne ref $cb_error;
+        if $cb_error && ( 'CODE' ne ref $cb_error );
 
     state $share = do {
         my $s = Net::Curl::Share->new({ stamp => time });
@@ -126,13 +126,11 @@ sub _socket_action_wrapper {
         $multi->{_active} = $active;
 
         while ( my ( $msg, $easy, $result ) = $multi->info_read ) {
-            if ( $msg == Net::Curl::Multi::CURLMSG_DONE ) {
-                $multi->remove_handle( $easy );
-                $callback->{ $easy }->( $result );
-                delete $callback->{ $easy };
-            } else {
-                Carp::croak "I don't know what to do with message $msg.\n";
-            }
+            Carp::croak "I don't know what to do with message $msg.\n"
+                if $msg != Net::Curl::Multi::CURLMSG_DONE;
+            $multi->remove_handle( $easy );
+            $callback->{ $easy }->( $result );
+            delete $callback->{ $easy };
         }
     };
 
