@@ -10,8 +10,17 @@ use Net::Curl::Easy qw(/^CURLOPT_/);
 use Net::Curl::Multi ();
 use Net::Curl::Share ();
 
-sub curl_request ( $$&&;$ ) {
-    my ( $method, $url, $cb_success, $cb_error, $content ) = @_;
+sub curl_request ( $$@ ) {
+    my ( $method, $url, %args ) = @_;
+
+    my $content     = delete $args{body} // '';
+    my $cb_success  = delete $args{on_success};
+    my $cb_error    = delete $args{on_error};
+
+    Carp::croak "on_success must be a CODE reference!\n"
+        if 'CODE' ne ref $cb_success;
+    Carp::croak "on_error must be a CODE reference!\n"
+        if $cb_error && 'CODE' ne ref $cb_error;
 
     state $share = do {
         my $s = Net::Curl::Share->new({ stamp => time });
@@ -28,13 +37,20 @@ sub curl_request ( $$&&;$ ) {
         $m;
     };
 
+    no strict 'refs';
+    state $curlopt = {
+        map { lc s/^ CURLOPT_//rx => &{ "Net::Curl::Easy::$_" } }
+        grep { /^ CURLOPT_/x && defined &{ "Net::Curl::Easy::$_" } }
+        keys %Net::Curl::Easy::
+    };
+    use strict 'refs';
+
     my $easy = Net::Curl::Easy->new;
     my $body = '';
     my $header = '';
 
     # request type
     $method = uc $method;
-    $content //= '';
     if ( $method eq 'GET' ) {
         $easy->setopt( CURLOPT_HTTPGET      ,=> 1 );
     } elsif ( $method eq 'POST' ) {
@@ -46,30 +62,38 @@ sub curl_request ( $$&&;$ ) {
     } elsif ( $method eq 'DELETE' ) {
         $easy->setopt( CURLOPT_CUSTOMREQUEST,=> $method );
     } elsif ( $method eq 'PUT' ) {
-        ...
+        Carp::croak "$method method not implemented (yet)\n";
     } else {
         Carp::croak "Unknown HTTP method: $method\n";
     }
 
-    # ol' reliable
-    $easy->setopt( CURLOPT_AUTOREFERER      ,=> 1 );
-    $easy->setopt( CURLOPT_ENCODING         ,=> '' );
-    $easy->setopt( CURLOPT_FOLLOWLOCATION   ,=> 1 );
-    $easy->setopt( CURLOPT_MAXREDIRS        ,=> 7 );
-    # $easy->setopt( CURLOPT_PROXY            ,=> 'socks5://127.0.0.1:9050' );
-    $easy->setopt( CURLOPT_USERAGENT        ,=> 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Safari/605.1.15' );
-    # $easy->setopt( CURLOPT_VERBOSE          ,=> 1 );
+    my %opts = (
+        # ol' reliable
+        autoreferer     => 1,
+        encoding        => '',
+        followlocation  => 1,
+        maxredirs       => 7,
 
-    # timeouts
-    $easy->setopt( CURLOPT_CONNECTTIMEOUT   ,=> 10 );
-    $easy->setopt( CURLOPT_LOW_SPEED_LIMIT  ,=> 30 ); # abort if slower than 30 bytes/sec
-    $easy->setopt( CURLOPT_LOW_SPEED_TIME   ,=> 60 ); # during 60 seconds
+        # timeouts
+        connecttimeout  => 10,
+        low_speed_limit => 30, # abort if slower than 30 bytes/sec
+        low_speed_time  => 60, # during 60 seconds
 
-    # references
-    $easy->setopt( CURLOPT_SHARE            ,=> $share );
-    $easy->setopt( CURLOPT_URL              ,=> $url );
-    $easy->setopt( CURLOPT_WRITEDATA        ,=> \$body );
-    $easy->setopt( CURLOPT_WRITEHEADER      ,=> \$header );
+        # references
+        share           => $share,
+        url             => $url,
+        writedata       => \$body,
+        writeheader     => \$header,
+
+        # custom
+        %args,
+    );
+
+    for my $opt ( keys %opts ) {
+        my $opt_code = $curlopt->{ lc $opt };
+        Carp::croak "Unknown option CURLOPT_\U$opt\n" unless $opt_code;
+        $easy->setopt( $opt_code => $opts{ $opt } );
+    }
 
     my ( $socket_action, $callback ) = _socket_action_wrapper( $multi );
     $callback->{ $easy } = sub {
@@ -206,13 +230,16 @@ sub main {
     for my $url ( @urls ) {
         $cv->begin;
         curl_request GET => $url,
-            sub {
+            # proxy           => 'socks5://127.0.0.1:9050',
+            useragent       => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.0 Safari/605.1.15',
+            # verbose         => 1,
+            on_success => sub {
                 my ( $easy, $hdr, $body ) = @_;
                 say $easy->getinfo( Net::Curl::Easy::CURLINFO_EFFECTIVE_URL );
                 # say $hdr;
                 $cv->end;
             },
-            sub {
+            on_error => sub {
                 my ( $easy, $result ) = @_;
                 if ( $result == Net::Curl::Easy::CURLE_OPERATION_TIMEDOUT ) {
                     say "TIMEOUT\t", $easy->getinfo( Net::Curl::Easy::CURLINFO_EFFECTIVE_URL );
