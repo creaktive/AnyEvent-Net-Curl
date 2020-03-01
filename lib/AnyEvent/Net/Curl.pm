@@ -13,6 +13,36 @@ use Net::Curl::Share ();
 use base Exporter::;
 our @EXPORT = qw( curl_request );
 
+=head1 NAME
+
+AnyEvent::Net::Curl - thin wrapper around Net::Curl
+
+=head1 SYNOPSIS
+
+    use AnyEvent::Net::Curl;
+    my $cv = AE::cv;
+    $cv->begin;
+    curl_request GET => 'https://google.com',
+        verbose => 1,
+        on_success => sub {
+            my ( $e, $hdr, $body ) = @_;
+            print $hdr;
+            $cv->end;
+        };
+    $cv->recv;
+
+=head1 DESCRIPTION
+
+...
+
+=head1 METHODS
+
+=head2 curl_request $http_verb, $url, %options, on_success => sub { ... }
+
+...
+
+=cut
+
 sub curl_request ( $$@ ) {
     my ( $method, $url, %args ) = @_;
 
@@ -217,3 +247,15 @@ sub _cb_timer {
 }
 
 1;
+__DATA__
+
+=head1 AUTHOR
+
+Stanislaw Pusep <stas@sysd.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2020 by Stanislaw Pusep.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
