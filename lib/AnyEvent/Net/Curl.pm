@@ -33,13 +33,13 @@ AnyEvent::Net::Curl - thin wrapper around Net::Curl
 
 =head1 DESCRIPTION
 
-...
+Minimalistic glue between L<AnyEvent> and L<Net::Curl>.
 
 =head1 METHODS
 
 =head2 curl_request $http_verb, $url, %options, on_success => sub { ... }
 
-...
+WIP
 
 =cut
 
@@ -247,7 +247,8 @@ sub _cb_timer {
 }
 
 1;
-__DATA__
+
+=pod
 
 =head1 AUTHOR
 
@@ -259,3 +260,5 @@ This software is copyright (c) 2020 by Stanislaw Pusep.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
+
+=cut
