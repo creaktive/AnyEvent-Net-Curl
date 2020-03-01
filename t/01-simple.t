@@ -4,7 +4,7 @@ use warnings qw( all );
 use AnyEvent::Net::Curl;
 use Test::HTTP::AnyEvent::Server;
 
-use Test::More tests => 26;
+use Test::More tests => 30;
 use Test::Exception;
 
 my $server = Test::HTTP::AnyEvent::Server->new;
@@ -170,6 +170,32 @@ curl_request HEAD => $server->uri,
             $body,
             '',
             'HEAD / - body is empty',
+        );
+
+        $cv->end;
+    };
+
+$cv->begin;
+curl_request DELETE => 'http://0.0.0.0/',
+    # verbose => 1,
+    on_success => sub {
+        fail 'DELETE can not succeed';
+        $cv->end;
+    },
+    on_error => sub {
+        my ( $easy, $result ) = @_;
+
+        isa_ok( $easy, 'Net::Curl::Easy' );
+        isa_ok( $result, 'Net::Curl::Easy::Code' );
+        is(
+            0 + $result,
+            Net::Curl::Easy::CURLE_COULDNT_CONNECT,
+            'DELETE http://0.0.0.0/ - result code',
+        );
+        is(
+            '' . $result,
+            "Couldn't connect to server",
+            'DELETE http://0.0.0.0/ - result text',
         );
 
         $cv->end;
