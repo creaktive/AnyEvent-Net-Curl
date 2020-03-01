@@ -4,12 +4,44 @@ use warnings qw( all );
 use AnyEvent::Net::Curl;
 use Test::HTTP::AnyEvent::Server;
 
-use Test::More tests => 21;
+use Test::More tests => 26;
+use Test::Exception;
 
 my $server = Test::HTTP::AnyEvent::Server->new;
 isa_ok( $server, 'Test::HTTP::AnyEvent::Server' );
 
 my $cv = AE::cv;
+
+throws_ok {
+    curl_request GET => $server->uri;
+} qr{^ on_success \s+ must \s+ be \s+ a \s+ CODE \s+ reference }x,
+    'missing on_success';
+
+throws_ok {
+    curl_request GET => $server->uri,
+        on_success => sub { ... },
+        on_error => -1;
+} qr{^ on_error \s+ must \s+ be \s+ a \s+ CODE \s+ reference }x,
+    'on_error is not a sub{}';
+
+throws_ok {
+    curl_request PUT => $server->uri,
+        on_success => sub { ... };
+} qr{^ PUT \s+ method \s+ not \s+ implemented }x,
+    'PUT method';
+
+throws_ok {
+    curl_request GET => $server->uri,
+        wubbalubbadubdub => 123,
+        on_success => sub { ... };
+} qr{^ Unknown \s+ option \s+ CURLOPT_WUBBALUBBADUBDUB }x,
+    'bad CURLOPT';
+
+throws_ok {
+    curl_request OOPS => $server->uri,
+        on_success => sub { ... };
+} qr{^ Unknown \s+ HTTP \s+ method: \s+ OOPS }x,
+    'bad method';
 
 $cv->begin;
 curl_request GET => $server->uri . 'echo/head',
@@ -103,6 +135,10 @@ curl_request GET => $server->uri . 'hurrdurr',
             'GET /hurrdurr - body is Not Found',
         );
 
+        $cv->end;
+    },
+    on_error => sub {
+        fail '404 IS NOT AN ERROR';
         $cv->end;
     };
 
