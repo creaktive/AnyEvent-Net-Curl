@@ -4,7 +4,7 @@ use warnings qw( all );
 use AnyEvent::Net::Curl;
 use Test::HTTP::AnyEvent::Server;
 
-use Test::More tests => 36;
+use Test::More tests => 37;
 use Test::Exception;
 
 my $server = Test::HTTP::AnyEvent::Server->new;
@@ -189,7 +189,7 @@ curl_request HEAD => $server->uri,
             'HEAD / - header response is also 400 Bad Request',
         );
         is(
-            $res->raw_body,
+            $res->body,
             '',
             'HEAD / - body is empty',
         );
@@ -212,6 +212,10 @@ curl_request DELETE => 'http://0.0.0.0/',
         ok(
             $res->is_error,
             'DELETE http://0.0.0.0/ - is_error',
+        );
+        ok(
+            ! $res->is_timeout,
+            'DELETE http://0.0.0.0/ - but not is_timeout',
         );
 
         $cv->end;
