@@ -38,7 +38,7 @@ sub is_timeout          { shift->{_result} == Net::Curl::Easy::CURLE_OPERATION_T
 sub is_info             { HTTP::Status::is_info         ( $_[0]->status ) }
 sub is_success          { HTTP::Status::is_success      ( $_[0]->status ) }
 sub is_redirect         { HTTP::Status::is_redirect     ( $_[0]->status ) }
-sub is_error            { HTTP::Status::is_error        ( $_[0]->status ) || ! $_[0]->status }
+sub is_error            { HTTP::Status::is_error        ( $_[0]->status ) || $_[0]->is_curl_error }
 sub is_client_error     { HTTP::Status::is_client_error ( $_[0]->status ) }
 sub is_server_error     { HTTP::Status::is_server_error ( $_[0]->status ) }
 
