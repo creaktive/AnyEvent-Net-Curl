@@ -28,7 +28,7 @@ AnyEvent::Net::Curl - thin wrapper around Net::Curl
         verbose => 1,
         sub {
             my ( $res ) = @_;
-            print $res->raw_headers;
+            say for $res->header_field_names;
             $cv->end;
         };
     $cv->recv;

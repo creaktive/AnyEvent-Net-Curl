@@ -58,7 +58,7 @@ curl_request GET => $server->uri . 'echo/head',
         );
         is(
             $res->content_length,
-            -1,
+            undef,
             "GET /echo/head - Content-Length is unset",
         );
         is(
@@ -206,7 +206,7 @@ curl_request DELETE => 'http://0.0.0.0/',
         isa_ok( $res, 'AnyEvent::Net::Curl::Result' );
         is(
             $res->status,
-            undef,
+            '',
             'DELETE http://0.0.0.0/ - status NOT set',
         );
         ok(
