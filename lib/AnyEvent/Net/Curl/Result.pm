@@ -47,13 +47,14 @@ sub body                { shift->{_body} }
 
 sub headers {
     my ( $self ) = @_;
-    $self->{_headers} //=
+    $self->{_headers_object} //=
         HTTP::XSHeaders->new( @{
-            HTTP::Parser::XS::parse_http_response(
-                # libcurl concatenates headers of redirections!
-                $self->{_header} =~ s{^ .* (?: \015\012? | \012\015) {2} (?!$)}{}rsx,
-                HTTP::Parser::XS::HEADERS_AS_ARRAYREF,
-            )
+            $self->{_headers_array} //=
+                HTTP::Parser::XS::parse_http_response(
+                    # libcurl concatenates headers of redirections!
+                    $self->{_header} =~ s{^ .* (?: \015\012? | \012\015) {2} (?!$)}{}rsx,
+                    HTTP::Parser::XS::HEADERS_AS_ARRAYREF,
+                )
         } );
 }
 
