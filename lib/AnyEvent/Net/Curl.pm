@@ -39,7 +39,7 @@ Minimalistic glue between L<AnyEvent> and L<Net::Curl>.
 
 =head1 METHODS
 
-=head2 curl_request $http_verb, $url, %options, on_success => sub { ... }
+=head2 curl_request $http_verb, $url, %options, sub { ... }
 
 WIP
 

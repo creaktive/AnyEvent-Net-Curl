@@ -15,7 +15,7 @@ my $cv = AE::cv;
 throws_ok {
     curl_request GET => $server->uri;
 } qr{^ last \s+ argument \s+ to \s+ curl_request \s+ must \s+ be \s+ a \s+ CODE \s+ reference }x,
-    'missing on_success';
+    'missing callback';
 
 throws_ok {
     curl_request PUT => $server->uri, sub { ... };
@@ -48,7 +48,7 @@ curl_request GET => $server->uri . 'echo/head',
             'GET /echo/head - CURLINFO_EFFECTIVE_URL',
         );
         is(
-            $res->code,
+            $res->status,
             200,
             'GET /echo/head - CURLINFO_RESPONSE_CODE is 200',
         );
@@ -81,7 +81,7 @@ curl_request POST => $server->uri . 'echo/body',
             'POST /echo/body - CURLINFO_EFFECTIVE_URL',
         );
         is(
-            $res->code,
+            $res->status,
             200,
             'POST /echo/body - CURLINFO_RESPONSE_CODE is 200',
         );
@@ -112,7 +112,7 @@ curl_request GET => $server->uri . 'hurrdurr',
             'GET /hurrdurr - CURLINFO_EFFECTIVE_URL',
         );
         is(
-            $res->code,
+            $res->status,
             404,
             'GET /hurrdurr - CURLINFO_RESPONSE_CODE is 404',
         );
@@ -145,7 +145,7 @@ curl_request HEAD => $server->uri,
             'HEAD / - CURLINFO_EFFECTIVE_URL',
         );
         is(
-            $res->code,
+            $res->status,
             400,
             'HEAD / - CURLINFO_RESPONSE_CODE is 400',
         );
