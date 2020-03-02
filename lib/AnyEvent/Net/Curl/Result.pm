@@ -21,9 +21,9 @@ sub new {
 sub status {
     my ( $self ) = @_;
     $self->{_status} //=
-        ( $self->{_result} == Net::Curl::Easy::CURLE_OK )
-            ? 0 + $self->{_easy}->getinfo( Net::Curl::Easy::CURLINFO_RESPONSE_CODE )
-            : ''; # empty status means hard error
+        $self->is_curl_error
+            ? '' # empty status means hard error
+            : 0 + $self->{_easy}->getinfo( Net::Curl::Easy::CURLINFO_RESPONSE_CODE );
 }
 
 sub url {
@@ -32,6 +32,7 @@ sub url {
         $self->{_easy}->getinfo( Net::Curl::Easy::CURLINFO_EFFECTIVE_URL );
 }
 
+sub is_curl_error       { shift->{_result} != Net::Curl::Easy::CURLE_OK }
 sub is_timeout          { shift->{_result} == Net::Curl::Easy::CURLE_OPERATION_TIMEDOUT }
 
 sub is_info             { HTTP::Status::is_info         ( $_[0]->status ) }
