@@ -4,7 +4,7 @@ use warnings qw( all );
 use AnyEvent::Net::Curl;
 use Test::HTTP::AnyEvent::Server;
 
-use Test::More tests => 29;
+use Test::More tests => 36;
 use Test::Exception;
 
 my $server = Test::HTTP::AnyEvent::Server->new;
@@ -47,10 +47,24 @@ curl_request GET => $server->uri . 'echo/head',
             qr{ /echo/head $ }x,
             'GET /echo/head - CURLINFO_EFFECTIVE_URL',
         );
+        ok(
+            $res->is_success,
+            'GET /echo/head - is_success',
+        );
         is(
             $res->status,
             200,
             'GET /echo/head - CURLINFO_RESPONSE_CODE is 200',
+        );
+        is(
+            $res->content_length,
+            -1,
+            "GET /echo/head - Content-Length is unset",
+        );
+        is(
+            $res->content_type,
+            'text/plain',
+            "GET /echo/head - Content-Type is text/plain",
         );
         like(
             $res->raw_headers,
@@ -79,6 +93,10 @@ curl_request POST => $server->uri . 'echo/body',
             $res->url,
             qr{ /echo/body $ }x,
             'POST /echo/body - CURLINFO_EFFECTIVE_URL',
+        );
+        ok(
+            $res->is_success,
+            'GET /echo/body - is_success',
         );
         is(
             $res->status,
@@ -110,6 +128,14 @@ curl_request GET => $server->uri . 'hurrdurr',
             $res->url,
             qr{ /hurrdurr $ }x,
             'GET /hurrdurr - CURLINFO_EFFECTIVE_URL',
+        );
+        ok(
+            $res->is_error,
+            'GET /hurrdurr - is_error',
+        );
+        ok(
+            $res->is_client_error,
+            'GET /hurrdurr - is_client_error',
         );
         is(
             $res->status,
@@ -144,6 +170,14 @@ curl_request HEAD => $server->uri,
             $server->uri,
             'HEAD / - CURLINFO_EFFECTIVE_URL',
         );
+        ok(
+            $res->is_error,
+            'HEAD / - is_error',
+        );
+        ok(
+            $res->is_client_error,
+            'HEAD / - is_client_error',
+        );
         is(
             $res->status,
             400,
@@ -170,18 +204,14 @@ curl_request DELETE => 'http://0.0.0.0/',
         my ( $res ) = @_;
 
         isa_ok( $res, 'AnyEvent::Net::Curl::Result' );
-
-        my $curl_result = $res->curl_result;
-        isa_ok( $curl_result, 'Net::Curl::Easy::Code' );
         is(
-            0 + $curl_result,
-            Net::Curl::Easy::CURLE_COULDNT_CONNECT,
-            'DELETE http://0.0.0.0/ - result code',
+            $res->status,
+            undef,
+            'DELETE http://0.0.0.0/ - status NOT set',
         );
-        is(
-            '' . $curl_result,
-            "Couldn't connect to server",
-            'DELETE http://0.0.0.0/ - result text',
+        ok(
+            $res->is_error,
+            'DELETE http://0.0.0.0/ - is_error',
         );
 
         $cv->end;
