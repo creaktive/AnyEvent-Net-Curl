@@ -10,6 +10,8 @@ use Net::Curl::Easy ();
 use Net::Curl::Multi ();
 use Net::Curl::Share ();
 
+use AnyEvent::Net::Curl::Result ();
+
 use base Exporter::;
 our @EXPORT = qw( curl_request );
 
@@ -24,9 +26,9 @@ AnyEvent::Net::Curl - thin wrapper around Net::Curl
     $cv->begin;
     curl_request GET => 'https://google.com',
         verbose => 1,
-        on_success => sub {
-            my ( $e, $hdr, $body ) = @_;
-            print $hdr;
+        sub {
+            my ( $res ) = @_;
+            print $res->raw_headers;
             $cv->end;
         };
     $cv->recv;
@@ -44,16 +46,11 @@ WIP
 =cut
 
 sub curl_request ( $$@ ) {
+    my $cb = pop;
+    Carp::croak "last argument to curl_request must be a CODE reference!\n"
+        if 'CODE' ne ref $cb;
+
     my ( $method, $url, %args ) = @_;
-
-    my $content     = delete $args{body} // '';
-    my $cb_success  = delete $args{on_success};
-    my $cb_error    = delete $args{on_error};
-
-    Carp::croak "on_success must be a CODE reference!\n"
-        if 'CODE' ne ref $cb_success;
-    Carp::croak "on_error must be a CODE reference!\n"
-        if $cb_error && ( 'CODE' ne ref $cb_error );
 
     state $share = do {
         my $s = Net::Curl::Share->new({ stamp => time });
@@ -77,6 +74,9 @@ sub curl_request ( $$@ ) {
         keys %Net::Curl::Easy::
     };
     use strict 'refs';
+
+    # silently ignored for everything except POST
+    my $content = delete $args{body} // '';
 
     my $easy = Net::Curl::Easy->new;
     my $body = '';
@@ -131,11 +131,12 @@ sub curl_request ( $$@ ) {
     my ( $socket_action, $callback ) = _socket_action_wrapper( $multi );
     $callback->{ $easy } = sub {
         my ( $result ) = @_;
-        if ( $result == Net::Curl::Easy::CURLE_OK ) {
-            $cb_success->( $easy, $header, $body );
-        } else {
-            $cb_error->( $easy, $result );
-        }
+        $cb->( AnyEvent::Net::Curl::Result->new( {
+            easy    => $easy,
+            result  => $result,
+            header  => $header,
+            body    => $body,
+        } ) );
     };
 
     $multi->add_handle( $easy );
