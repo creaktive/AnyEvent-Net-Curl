@@ -113,6 +113,7 @@ sub curl_request ( $$@ ) {
         low_speed_time  => 60, # during 60 seconds
 
         # references
+        cookiefile      => '', # needed to initialize the cookie engine
         share           => $share,
         url             => $url,
         writedata       => \$body,
