@@ -239,7 +239,7 @@ sub _cb_timer {
         # must not wait too long (more than a few seconds perhaps)
         # before you call curl_multi_perform() again.
 
-        $multi->{_timer} = AE::timer 10, 10, $cb_timeout;
+        $multi->{_timer} = AE::timer 1, 1, $cb_timeout;
     } else {
         # This will trigger timeouts if there are any.
         $multi->{_timer} = AE::timer $timeout_ms / 1000, 0, $cb_timeout;
@@ -258,7 +258,7 @@ Stanislaw Pusep <stas@sysd.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2020 by Stanislaw Pusep.
+This software is copyright (c) 2021 by Stanislaw Pusep.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
