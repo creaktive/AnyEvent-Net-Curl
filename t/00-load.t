@@ -6,7 +6,7 @@ use Test::More tests => 1;
 use_ok('AnyEvent::Net::Curl');
 
 diag("Net::Curl v$Net::Curl::VERSION");
-diag("AnyEvent v$AnyEvent::VERSION (" .  AnyEvent::detect . ')');
+diag("AnyEvent v$AnyEvent::VERSION (" .  AnyEvent::detect() . ')');
 diag("Perl $] ($^X)");
 
 # shamelessly borrowed from Net::Curl t/00-info.t
